@@ -1,20 +1,9 @@
-from asyncio import sleep, Queue, run, create_task
-from enum import Enum, auto
-from random import choice, random, randint
+from asyncio import Queue, create_task, run, sleep, Task
 from pprint import pprint
-class Material(Enum):
-    FOOD = auto()
-    WOOD = auto()
-    STONE = auto()
-    IRON = auto()
+from random import choice, randint, random
+from typing import Tuple, List, Dict
 
-class Asset(Enum):
-    WORKER = auto()
-    HOUSE = auto()
-    FARM = auto()
-    WOODWORK = auto()
-    QUARRY = auto()
-    MINE = auto()   
+from town import Asset, Material
 
 materials_stock = {
     Material.FOOD: 0,
@@ -32,18 +21,20 @@ assets_stats = {
     Asset.MINE: 0,
 }
 
-async def compute_material_count(base_count: int, found_material: Material, assets: dict):
+async def compute_material_count(base_count: int, material: Material, assets: Dict[Asset, int])->int:
+    material_assets_bonus = {
+        Material.FOOD: [Asset.FARM],
+        Material.WOOD: [Asset.WOODWORK],
+        Material.STONE: [Asset.QUARRY],
+        Material.IRON: [Asset.MINE],
+    }
+    bonus_assets = material_assets_bonus.get(material, [])
+    total = base_count
+    for asset in bonus_assets:
+        total += assets.get(asset, 0)
+    return total
 
-    if found_material == Material.FOOD:
-        return base_count + assets[Asset.FARM]
-    if found_material == Material.WOOD:
-        return base_count + assets[Asset.WOODWORK]
-    if found_material == Material.STONE:
-        return base_count + assets[Asset.QUARRY]
-    if found_material == Material.IRON:
-        return base_count + assets[Asset.MINE]
-
-async def find_material():
+async def find_material() -> Tuple[Material, int]:
     
     await_time = random()*4
     await sleep(await_time)
@@ -51,16 +42,15 @@ async def find_material():
     material_count = randint(1,10)
     return found_material, material_count
 
-
-async def worker(worker_id, queue: Queue):
+async def worker(worker_id: int, queue: Queue)->None:
     while True:
         material, count = await find_material()
         print('Worker #{} find {} x {}'.format(worker_id, material, count))
         queue.put_nowait((material,count))
 
-async def game(materials, assets):
-    tasks = []
-    queue = Queue()
+async def game(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
+    tasks: List[Task] = []
+    queue: Queue = Queue()
     while True:
         if len(tasks)< assets[Asset.WORKER]:
             task = create_task(worker(len(tasks)+1, queue))
@@ -71,5 +61,6 @@ async def game(materials, assets):
         if materials[Material.FOOD] > assets[Asset.WORKER] * 10:
             materials[Material.FOOD] -= assets[Asset.WORKER] * 10
             assets[Asset.WORKER] += 1
+    
 if __name__ == '__main__':
     run(game(materials_stock, assets_stats))
