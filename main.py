@@ -78,15 +78,52 @@ async def take_assets_from_worker(materials: Dict[Material, int], assets: Dict[A
     print("Added {} X {} (+{})".format(material, count, total_count-count))
     materials[material] += total_count
 
+async def buy_quarry_if_possible(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
+    stone_needed = (assets[Asset.QUARRY] + 1) * 10 
+    worker_needed = assets[Asset.QUARRY] + 1
+    food_needed = assets[Asset.QUARRY] * 2
+    if materials[Material.STONE] > stone_needed and assets[Asset.WORKER] > worker_needed and materials[Material.FOOD] > food_needed:
+        materials[Material.STONE] -= stone_needed
+        materials[Material.FOOD] -= food_needed
+        assets[Asset.WORKER] -= worker_needed
+        assets[Asset.QUARRY] += 1
+        print('Town build new quarry')
+
+async def buy_woodwork_if_possible(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
+    wood_needed = (assets[Asset.WOODWORK] + 1) * 10
+    food_needed = assets[Asset.WOODWORK] * 4
+    stone_needed = (assets[Asset.WOODWORK] + 1) * 3
+    worker_needed = (assets[Asset.WORKER]) + 1
+    enought_wood = materials[Material.WOOD] > wood_needed
+    enought_food = materials[Material.FOOD] > food_needed
+    enought_stone = materials[Material.STONE] > stone_needed
+    enought_worker = assets[Asset.WORKER] > worker_needed 
+    if all([enought_wood, enought_food, enought_stone, enought_worker]):
+        materials[Material.WOOD] -= wood_needed
+        materials[Material.FOOD] -= food_needed
+        materials[Material.STONE] -= stone_needed
+        assets[Asset.WORKER] -= worker_needed
+        assets[Asset.WOODWORK] += 1
+        print('Town build new quarry')
+
+async def spin_down_worker_if_needed(assets: Dict[Asset, int], tasks: List[Task]):
+    while len(tasks)> assets[Asset.WORKER]:
+        worker_to_stop = tasks.pop()
+        worker_to_stop.cancel()
+        print('Town stop worker')
+
 async def game(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
     tasks: List[Task] = []
     queue: Queue = Queue()
     while True:
         await spin_up_worker_if_needed(assets, tasks, queue)
         await take_assets_from_worker(materials, assets, queue)
-        #pprint((materials, assets), compact=True)
+        print((materials, assets))
         await buy_worker_if_possible(materials, assets)
         await buy_house_if_possible(materials, assets)
-    
+        await buy_quarry_if_possible(materials, assets)
+        await buy_woodwork_if_possible(materials, assets)
+        await spin_down_worker_if_needed(assets, tasks)
+   
 if __name__ == '__main__':
     run(game(materials_stock, assets_stats))
