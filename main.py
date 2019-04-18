@@ -49,11 +49,23 @@ async def worker(worker_id: int, queue: Queue)->None:
         print('Worker #{} find {} x {}'.format(worker_id, material, count))
         queue.put_nowait((material,count))
 
-async def buy_worker_if_possible(materials, assets):
-    if materials[Material.FOOD] > assets[Asset.WORKER] * 10:
-        materials[Material.FOOD] -= assets[Asset.WORKER] * 10
+async def buy_worker_if_possible(materials: Dict[Material, int], assets: Dict[Asset, int]):
+    house_capacity = 2
+    food_needed = assets[Asset.WORKER] * 10
+    house_capacity = assets[Asset.HOUSE] * house_capacity
+    if materials[Material.FOOD] > food_needed and house_capacity > assets[Asset.WORKER]:
+        materials[Material.FOOD] -= food_needed
         assets[Asset.WORKER] += 1
         print('Town buy new worker')
+
+async def buy_house_if_possible(materials: Dict[Material, int], assets: Dict[Asset, int]):
+    stone_needed = assets[Asset.HOUSE] * 10
+    wood_needed = assets[Asset.HOUSE]*5
+    if materials[Material.STONE] > stone_needed and materials[Material.WOOD]>wood_needed:
+        materials[Material.STONE] -= stone_needed
+        materials[Material.WOOD] -= wood_needed
+        assets[Asset.HOUSE] += 1
+        print('Town build new house')
 
 async def spin_up_worker_if_needed(assets: Dict[Asset, int], tasks: List[Task], queue: Queue)->None:
     if len(tasks)< assets[Asset.WORKER]:
@@ -72,8 +84,9 @@ async def game(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
     while True:
         await spin_up_worker_if_needed(assets, tasks, queue)
         await take_assets_from_worker(materials, assets, queue)
-        pprint(materials, compact=True)
+        #pprint((materials, assets), compact=True)
         await buy_worker_if_possible(materials, assets)
+        await buy_house_if_possible(materials, assets)
     
 if __name__ == '__main__':
     run(game(materials_stock, assets_stats))
