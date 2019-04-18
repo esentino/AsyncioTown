@@ -43,24 +43,37 @@ async def find_material() -> Tuple[Material, int]:
     return found_material, material_count
 
 async def worker(worker_id: int, queue: Queue)->None:
+    print("Worker #{} start working".format(worker_id))
     while True:
         material, count = await find_material()
         print('Worker #{} find {} x {}'.format(worker_id, material, count))
         queue.put_nowait((material,count))
 
+async def buy_worker_if_possible(materials, assets):
+    if materials[Material.FOOD] > assets[Asset.WORKER] * 10:
+        materials[Material.FOOD] -= assets[Asset.WORKER] * 10
+        assets[Asset.WORKER] += 1
+        print('Town buy new worker')
+
+async def spin_up_worker_if_needed(assets: Dict[Asset, int], tasks: List[Task], queue: Queue)->None:
+    if len(tasks)< assets[Asset.WORKER]:
+        task = create_task(worker(len(tasks)+1, queue))
+        tasks.append(task)
+
+async def take_assets_from_worker(materials: Dict[Material, int], assets: Dict[Asset, int], queue: Queue)->None:
+    material, count = await queue.get()
+    total_count = await compute_material_count(count, material, assets)
+    print("Added {} X {} (+{})".format(material, count, total_count-count))
+    materials[material] += total_count
+
 async def game(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
     tasks: List[Task] = []
     queue: Queue = Queue()
     while True:
-        if len(tasks)< assets[Asset.WORKER]:
-            task = create_task(worker(len(tasks)+1, queue))
-            tasks.append(task)
-        material, count = await queue.get()
-        materials[material] += await compute_material_count(count, material, assets)
-        pprint(materials)
-        if materials[Material.FOOD] > assets[Asset.WORKER] * 10:
-            materials[Material.FOOD] -= assets[Asset.WORKER] * 10
-            assets[Asset.WORKER] += 1
+        await spin_up_worker_if_needed(assets, tasks, queue)
+        await take_assets_from_worker(materials, assets, queue)
+        pprint(materials, compact=True)
+        await buy_worker_if_possible(materials, assets)
     
 if __name__ == '__main__':
     run(game(materials_stock, assets_stats))
