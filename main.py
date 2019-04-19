@@ -32,6 +32,7 @@ async def compute_material_count(base_count: int, material: Material, assets: Di
     total = base_count
     for asset in bonus_assets:
         total += assets.get(asset, 0)
+        await sleep(0)
     return total
 
 async def find_material() -> Tuple[Material, int]:
@@ -93,7 +94,7 @@ async def buy_woodwork_if_possible(materials: Dict[Material, int], assets: Dict[
     wood_needed = (assets[Asset.WOODWORK] + 1) * 10
     food_needed = assets[Asset.WOODWORK] * 4
     stone_needed = (assets[Asset.WOODWORK] + 1) * 3
-    worker_needed = (assets[Asset.WORKER]) + 1
+    worker_needed = assets[Asset.WOODWORK] + 1
     enought_wood = materials[Material.WOOD] > wood_needed
     enought_food = materials[Material.FOOD] > food_needed
     enought_stone = materials[Material.STONE] > stone_needed
@@ -106,11 +107,47 @@ async def buy_woodwork_if_possible(materials: Dict[Material, int], assets: Dict[
         assets[Asset.WOODWORK] += 1
         print('Town build new quarry')
 
-async def spin_down_worker_if_needed(assets: Dict[Asset, int], tasks: List[Task]):
+async def buy_mine_if_possible(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
+    iron_needed = (assets[Asset.MINE] + 1) * 10
+    wood_needed = (assets[Asset.MINE] + 1) * 3
+    food_needed = (assets[Asset.MINE] + 1) * 2
+    worker_needed = (assets[Asset.MINE] + 1) * 3
+    stone_needed = (assets[Asset.MINE] + 1) * 5
+    enought_food = materials[Material.FOOD] > food_needed
+    enought_stone = materials[Material.STONE] > stone_needed
+    enought_wood = materials[Material.WOOD] > wood_needed
+    enought_worker = assets[Asset.WORKER] > worker_needed
+    enought_iron = materials[Material.IRON] > iron_needed
+    if all([enought_food, enought_food, enought_stone, enought_wood, enought_worker, enought_iron]):
+        materials[Material.IRON] -= iron_needed
+        materials[Material.WOOD] -= wood_needed
+        materials[Material.FOOD] -= food_needed
+        materials[Material.STONE] -= stone_needed
+        assets[Asset.WORKER] -= worker_needed
+        assets[Asset.MINE] += 1
+
+async def buy_farm_if_possible(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
+    wood_needed = (assets[Asset.FARM] + 1) * 2
+    stone_needed = (assets[Asset.FARM] + 1) * 1
+    food_needed = (assets[Asset.FARM] + 1) * 1
+    worker_needed = (assets[Asset.FARM] + 1) * 1
+    enought_food = materials[Material.FOOD] > food_needed
+    enought_stone = materials[Material.STONE] > stone_needed
+    enought_wood = materials[Material.WOOD] > wood_needed
+    enought_worker = assets[Asset.WORKER] > worker_needed
+    if all([enought_food, enought_stone, enought_wood, enought_worker]):
+        materials[Material.FOOD] -= food_needed
+        materials[Material.STONE] -= stone_needed
+        materials[Material.WOOD] -= wood_needed
+        assets[Asset.WORKER] -= worker_needed
+        assets[Asset.FARM] += 1
+
+async def spin_down_worker_if_needed(assets: Dict[Asset, int], tasks: List[Task])->None:
     while len(tasks)> assets[Asset.WORKER]:
         worker_to_stop = tasks.pop()
         worker_to_stop.cancel()
         print('Town stop worker')
+        await sleep(0)
 
 async def game(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
     tasks: List[Task] = []
@@ -118,12 +155,13 @@ async def game(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
     while True:
         await spin_up_worker_if_needed(assets, tasks, queue)
         await take_assets_from_worker(materials, assets, queue)
-        print((materials, assets))
         await buy_worker_if_possible(materials, assets)
         await buy_house_if_possible(materials, assets)
         await buy_quarry_if_possible(materials, assets)
+        await buy_farm_if_possible(materials, assets)
         await buy_woodwork_if_possible(materials, assets)
+        await buy_mine_if_possible(materials, assets)
         await spin_down_worker_if_needed(assets, tasks)
-   
+        print((materials, assets))
 if __name__ == '__main__':
     run(game(materials_stock, assets_stats))
