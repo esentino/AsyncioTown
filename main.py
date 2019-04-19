@@ -1,7 +1,7 @@
-from asyncio import Queue, create_task, run, sleep, Task
+from asyncio import Queue, Task, create_task, run, sleep
 from pprint import pprint
 from random import choice, randint, random
-from typing import Tuple, List, Dict
+from typing import Dict, List, Tuple
 
 from town import Asset, Material
 
@@ -60,8 +60,8 @@ async def buy_worker_if_possible(materials: Dict[Material, int], assets: Dict[As
         print('Town buy new worker')
 
 async def buy_house_if_possible(materials: Dict[Material, int], assets: Dict[Asset, int]):
-    stone_needed = assets[Asset.HOUSE] * 10
-    wood_needed = assets[Asset.HOUSE]*5
+    stone_needed = assets[Asset.HOUSE] * 30
+    wood_needed = assets[Asset.HOUSE]*15
     if materials[Material.STONE] > stone_needed and materials[Material.WOOD]>wood_needed:
         materials[Material.STONE] -= stone_needed
         materials[Material.WOOD] -= wood_needed
@@ -78,10 +78,11 @@ async def take_assets_from_worker(materials: Dict[Material, int], assets: Dict[A
     total_count = await compute_material_count(count, material, assets)
     print("Added {} X {} (+{})".format(material, count, total_count-count))
     materials[material] += total_count
+    queue.task_done()
 
 async def buy_quarry_if_possible(materials: Dict[Material, int], assets: Dict[Asset, int])->None:
     stone_needed = (assets[Asset.QUARRY] + 1) * 10 
-    worker_needed = assets[Asset.QUARRY] + 1
+    worker_needed = 1
     food_needed = assets[Asset.QUARRY] * 2
     if materials[Material.STONE] > stone_needed and assets[Asset.WORKER] > worker_needed and materials[Material.FOOD] > food_needed:
         materials[Material.STONE] -= stone_needed
@@ -94,7 +95,7 @@ async def buy_woodwork_if_possible(materials: Dict[Material, int], assets: Dict[
     wood_needed = (assets[Asset.WOODWORK] + 1) * 10
     food_needed = assets[Asset.WOODWORK] * 4
     stone_needed = (assets[Asset.WOODWORK] + 1) * 3
-    worker_needed = assets[Asset.WOODWORK] + 1
+    worker_needed = 1
     enought_wood = materials[Material.WOOD] > wood_needed
     enought_food = materials[Material.FOOD] > food_needed
     enought_stone = materials[Material.STONE] > stone_needed
@@ -111,7 +112,7 @@ async def buy_mine_if_possible(materials: Dict[Material, int], assets: Dict[Asse
     iron_needed = (assets[Asset.MINE] + 1) * 10
     wood_needed = (assets[Asset.MINE] + 1) * 3
     food_needed = (assets[Asset.MINE] + 1) * 2
-    worker_needed = (assets[Asset.MINE] + 1) * 3
+    worker_needed = 3
     stone_needed = (assets[Asset.MINE] + 1) * 5
     enought_food = materials[Material.FOOD] > food_needed
     enought_stone = materials[Material.STONE] > stone_needed
@@ -130,7 +131,7 @@ async def buy_farm_if_possible(materials: Dict[Material, int], assets: Dict[Asse
     wood_needed = (assets[Asset.FARM] + 1) * 2
     stone_needed = (assets[Asset.FARM] + 1) * 1
     food_needed = (assets[Asset.FARM] + 1) * 1
-    worker_needed = (assets[Asset.FARM] + 1) * 1
+    worker_needed = 1
     enought_food = materials[Material.FOOD] > food_needed
     enought_stone = materials[Material.STONE] > stone_needed
     enought_wood = materials[Material.WOOD] > wood_needed
